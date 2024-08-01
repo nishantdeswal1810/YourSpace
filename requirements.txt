@@ -1,0 +1,12 @@
+Flask
+pandas
+fpdf
+Pillow
+Flask-Mail
+reportlab
+requests
+gunicorn
+
+
+# gcloud app deploy app.yaml --project=coworkingspaceschatbot-tmva
+# $ gcloud app logs tail -s default
