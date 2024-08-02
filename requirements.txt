@@ -6,7 +6,8 @@ Flask-Mail
 reportlab
 requests
 gunicorn
-
+pymongo 
+dnspython
 
 # gcloud app deploy app.yaml --project=coworkingspaceschatbot-tmva
 # $ gcloud app logs tail -s default
