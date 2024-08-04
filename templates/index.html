@@ -426,7 +426,6 @@ div.cont{
                 });
             }
         }
-
         function clearForm() {
             document.getElementById("property-form").reset();
             $('#city').val('');
@@ -436,7 +435,28 @@ div.cont{
             $('#budget-list').empty();
         }
 
+        function addAdditionalField() {
+            const propertyType = $('#property_type').val();
+            const additionalField = $('#additional-field');
+
+            additionalField.empty(); // Clear any existing fields
+
+            if (propertyType === 'coworking') {
+                additionalField.append(`
+                        <input type="number" id="seats" name="seats" placeholder="How many Seats are required?" required>
+                `);
+            } else {
+                additionalField.append(`
+                        <input type="number" id="sqft" name="sqft" placeholder="How much Area(in sqft) is required?" required>
+                `);
+            }
+        }
+
         $(document).ready(function() {
+            $('#property_type').on('change', function() {
+                fetchCities();
+                addAdditionalField();
+            });
             $('#property_type').on('change', fetchCities);
             $('#city').on('input', fetchMicromarkets);
             $('#micromarket').on('input', fetchPrices);
@@ -494,6 +514,8 @@ div.cont{
                                 <!-- Add more options as needed -->
                             </select>
                             
+                            <div id="additional-field" class="form-section"></div>
+
                             <label for="city"></label>
                             <input type="text" id="city" name="city" list="city-list" placeholder="What is your preffered Location?" required>
                             <datalist id="city-list"></datalist>
