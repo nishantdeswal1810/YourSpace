@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, flash
 from flask_mail import Mail, Message
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -8,8 +8,12 @@ import base64
 import requests
 from io import BytesIO
 import pandas as pd
+from pymongo import MongoClient, ASCENDING
+import datetime
+import secrets
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)  # Securely generate a secret key
 
 # Flask-Mail configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -22,11 +26,32 @@ app.config['MAIL_DEFAULT_SENDER'] = 'project.propques@gmail.com'
 
 mail = Mail(app)
 
+# MongoDB configuration
+client = MongoClient("mongodb+srv://buzz:FcYVgTJ4cEf8kQnM@clusterm0.mqwsbsy.mongodb.net/FindYourSpace?retryWrites=true&w=majority&appName=ClusterM0")
+db = client['FindYourSpace']
+
+# Create indexes for efficient querying
+db.email_logs.create_index([('email', ASCENDING), ('date', ASCENDING)])
+
 # Load the cleaned CSV data
 coworking_data = pd.read_csv('data/coworking_spaces.csv')
 retail_data = pd.read_csv('data/99_acres.csv')
 
+def check_email_limit(email):
+    if "@gmail.com" in email:
+        limit_date = datetime.datetime.now() - datetime.timedelta(days=30)
+        email_count = db.email_logs.count_documents({
+            'email': email,
+            'date': {'$gte': limit_date}
+        })
+        return email_count < 10  # Set the limit to 10 emails per 30 days for Gmail addresses
+    return True
+
 def send_email(to_email, name, properties):
+    if not check_email_limit(to_email):
+        print(f"Email limit reached for {to_email}")
+        return False
+
     try:
         pdf_buffer = BytesIO()
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
@@ -60,7 +85,6 @@ def send_email(to_email, name, properties):
 
         message = Message(subject='Your Property Data',
                           recipients=[to_email],
-                          cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
                           html=f"<strong>Dear {name},</strong><br>"
                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
@@ -68,8 +92,10 @@ def send_email(to_email, name, properties):
 
         mail.send(message)
         print("Email sent successfully.")
+        return True
     except Exception as e:
         print(f"Failed to send email: {e}")
+        return False
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -79,6 +105,7 @@ def index():
     budget = None
     micromarkets = []
     filtered_properties = pd.DataFrame()
+    cities = []
 
     if request.method == 'POST':
         print("Form Data:", request.form)
@@ -109,19 +136,53 @@ def index():
                                        (data['price'] <= budget)]
             print("Filtered Properties:", filtered_properties)
             if not filtered_properties.empty:
+                # Check if user already exists
+                user = db.users.find_one({'email': email})
+                if not user:
+                    user_data = {
+                        'name': name,
+                        'email': email,
+                        'mobile_number': mobile
+                    }
+                    user_id = db.users.insert_one(user_data).inserted_id
+                else:
+                    user_id = user['_id']
+
                 # Send email with property details
-                send_email(email, name, filtered_properties.to_dict('records'))
+                if send_email(email, name, filtered_properties.to_dict('records')):
+                    # Save property info to MongoDB
+                    property_data = {
+                        'user_id': user_id,
+                        'city': selected_city,
+                        'micromarket': selected_micromarket,
+                        'budget': budget,
+                        'date': datetime.datetime.now()
+                    }
+                    db.properties.insert_one(property_data)
 
-        return render_template('index.html',
-                               property_type=property_type,
-                               cities=cities,
-                               micromarkets=micromarkets,
-                               selected_city=selected_city,
-                               selected_micromarket=selected_micromarket,
-                               filtered_properties=None,
-                               has_filtered_properties=False)
+                    # Save email log only if it's a Gmail address
+                    if "@gmail.com" in email:
+                        email_log = {
+                            'email': email,
+                            'date': datetime.datetime.now()
+                        }
+                        db.email_logs.insert_one(email_log)
+                else:
+                    flash("Email limit reached for this Gmail address. Please try again later.")
+            else:
+                flash("No properties found matching your criteria.")
+                
+        else:
+            flash("Please fill in all the required fields.")
 
-    return render_template('index.html', property_type=None, cities=[], micromarkets=[], selected_city=None, selected_micromarket=None, filtered_properties=None, has_filtered_properties=False)
+    return render_template('index.html',
+                           property_type=property_type,
+                           cities=cities,
+                           micromarkets=micromarkets,
+                           selected_city=selected_city,
+                           selected_micromarket=selected_micromarket,
+                           filtered_properties=None,
+                           has_filtered_properties=False)
 
 @app.route('/get_cities', methods=['POST'])
 def get_cities():
