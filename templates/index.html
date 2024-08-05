@@ -433,6 +433,7 @@
                 });
             }
         }
+
         function clearForm() {
             document.getElementById("property-form").reset();
             $('#city').val('');
@@ -458,15 +459,19 @@
         //         `);
         //     }
         // }
+        
+        // This function was used when we were changing property type : coworking or retail.
+        // $(document).ready(function() {
+        //     $('#property_type').on('change', function() {
+        //         fetchCities();
+        //         // addAdditionalField();
+        //     });
 
         $(document).ready(function() {
-            // $('#property_type').on('change', function() {
-            //     fetchCities();
-            //     addAdditionalField();
-            // });
-            $('#property_type').on('change', fetchCities);
-            $('#city').on('input', fetchMicromarkets);
-            $('#micromarket').on('input', fetchPrices);
+            fetchCities(); // Fetch cities as soon as the document is ready
+
+            $('#city').on('change', fetchMicromarkets);
+            $('#micromarket').on('change', fetchPrices);
         });
     </script>
 </head>
