@@ -442,28 +442,28 @@
             $('#budget-list').empty();
         }
 
-        function addAdditionalField() {
-            const propertyType = $('#property_type').val();
-            const additionalField = $('#additional-field');
+        // function addAdditionalField() {
+        //     const propertyType = $('#property_type').val();
+        //     const additionalField = $('#additional-field');
 
-            additionalField.empty(); // Clear any existing fields
+        //     additionalField.empty(); // Clear any existing fields
 
-            if (propertyType === 'coworking') {
-                additionalField.append(`
-                        <input type="number" id="seats" name="seats" placeholder="How many Seats are required?" required>
-                `);
-            } else {
-                additionalField.append(`
-                        <input type="number" id="sqft" name="sqft" placeholder="How much Area(in sqft) is required?" required>
-                `);
-            }
-        }
+        //     if (propertyType === 'coworking') {
+        //         additionalField.append(`
+        //                 <input type="number" id="seats" name="seats" placeholder="How many Seats are required?" required>
+        //         `);
+        //     } else {
+        //         additionalField.append(`
+        //                 <input type="number" id="sqft" name="sqft" placeholder="How much Area(in sqft) is required?" required>
+        //         `);
+        //     }
+        // }
 
         $(document).ready(function() {
-            $('#property_type').on('change', function() {
-                fetchCities();
-                addAdditionalField();
-            });
+            // $('#property_type').on('change', function() {
+            //     fetchCities();
+            //     addAdditionalField();
+            // });
             $('#property_type').on('change', fetchCities);
             $('#city').on('input', fetchMicromarkets);
             $('#micromarket').on('input', fetchPrices);
@@ -526,6 +526,8 @@
                             <label for="property_type"></label>
                             <select id="property_type" name="property_type" required>
                                 <option value="coworking">Coworking</option>
+                                <input type="number" id="seats" name="seats" placeholder="How many Seats are required?" required>
+                                <!-- <option value="retail">Retail</option> -->
                             </select>
                             
                             <div id="additional-field" class="form-section"></div>
