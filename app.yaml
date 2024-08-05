@@ -11,4 +11,8 @@ manual_scaling:
 
 env_variables:
   FLASK_ENV: 'production'
-
+  OTPLESS_API_TOKEN: '33JNARK4ZB0OH4A4D88R'
+  CLIENT_ID: 'K3CFAIIXV5XMOATA5EY10N8F9JZS22Z0'
+  CLIENT_SECRET: 'h88eb6s09bu9amiv65zvh48uq60zvbnv'
+  MAIL_PASSWORD: 'srcrthwcvdkaslap'
+  MONGO_URI: 'mongodb+srv://buzz:FcYVgTJ4cEf8kQnM@clusterm0.mqwsbsy.mongodb.net/FindYourSpace?retryWrites=true&w=majority&appName=ClusterM0'

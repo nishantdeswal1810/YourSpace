@@ -1,19 +1,27 @@
-from flask import Flask, render_template, request, jsonify, flash
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
 from flask_mail import Mail, Message
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.units import inch
-import base64
 import requests
 from io import BytesIO
 import pandas as pd
 from pymongo import MongoClient, ASCENDING
 import datetime
 import secrets
+import os
+from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
+
+# Import the OTPLessAuthSDK library
+import OTPLessAuthSDK
+
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(16)  # Securely generate a secret key
+app.secret_key = secrets.token_hex(16)
 
 # Flask-Mail configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -21,13 +29,13 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = 'project.propques@gmail.com'
-app.config['MAIL_PASSWORD'] = 'srcrthwcvdkaslap'
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = 'project.propques@gmail.com'
 
 mail = Mail(app)
 
 # MongoDB configuration
-client = MongoClient("mongodb+srv://buzz:FcYVgTJ4cEf8kQnM@clusterm0.mqwsbsy.mongodb.net/FindYourSpace?retryWrites=true&w=majority&appName=ClusterM0")
+client = MongoClient(os.environ.get('MONGO_URI'))
 db = client['FindYourSpace']
 
 # Create indexes for efficient querying
@@ -35,7 +43,6 @@ db.email_logs.create_index([('email', ASCENDING), ('date', ASCENDING)])
 
 # Load the cleaned CSV data
 coworking_data = pd.read_csv('data/coworking_spaces.csv')
-retail_data = pd.read_csv('data/99_acres.csv')
 
 def check_email_limit(email):
     if "@gmail.com" in email:
@@ -44,7 +51,7 @@ def check_email_limit(email):
             'email': email,
             'date': {'$gte': limit_date}
         })
-        return email_count < 10  # Set the limit to 10 emails per 30 days for Gmail addresses
+        return email_count < 10
     return True
 
 def send_email(to_email, name, properties):
@@ -85,6 +92,7 @@ def send_email(to_email, name, properties):
 
         message = Message(subject='Your Property Data',
                           recipients=[to_email],
+                          cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
                           html=f"<strong>Dear {name},</strong><br>"
                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
@@ -97,124 +105,167 @@ def send_email(to_email, name, properties):
         print(f"Failed to send email: {e}")
         return False
 
+def send_whatsapp_verification(mobile):
+    client_id = os.environ.get('CLIENT_ID')
+    client_secret = os.environ.get('CLIENT_SECRET')
+    redirect_uri = "https://coworkingspaceschatbot-tmva.el.r.appspot.com/verify_mobile"
+    channel = "WHATSAPP"
+
+    if not mobile.startswith('+91'):
+        mobile = f"+91{mobile.lstrip('0')}"
+
+    user_details = OTPLessAuthSDK.UserDetail.generate_magic_link(
+        mobile, None, client_id, client_secret, redirect_uri, channel
+    )
+    return user_details
+
+def delete_old_email_logs():
+    limit_date = datetime.datetime.now() - datetime.timedelta(days=30)
+    result = db.email_logs.delete_many({'date': {'$lt': limit_date}})
+    print(f"Deleted {result.deleted_count} old email logs.")
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=delete_old_email_logs, trigger="interval", weeks=1)
+scheduler.start()
+
+# Shut down the scheduler when exiting the app
+atexit.register(lambda: scheduler.shutdown())
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    property_type = None
-    selected_city = None
-    selected_micromarket = None
-    budget = None
-    micromarkets = []
-    filtered_properties = pd.DataFrame()
-    cities = []
-
     if request.method == 'POST':
-        print("Form Data:", request.form)
-        property_type = request.form.get('property_type')
-        selected_city = request.form.get('city')
-        selected_micromarket = request.form.get('micromarket')
-        budget = request.form.get('budget')
-        name = request.form.get('name')
-        mobile = request.form.get('mobile')
-        email = request.form.get('email')
+        action = request.form.get('action')
 
-        if property_type == 'coworking':
-            data = coworking_data
-        else:
-            data = retail_data
+        if action == 'verify_mobile':
+            name = request.form.get('name')
+            mobile = request.form.get('mobile')
+            email = request.form.get('email')
 
-        cities = data['city'].dropna().unique().tolist()
-        print("Cities:", cities)
+            if not all([name, mobile, email]):
+                flash("Name, mobile, and email are required.")
+                return redirect(url_for('index'))
 
-        if selected_city:
-            micromarkets = data[data['city'] == selected_city]['micromarket'].dropna().unique().tolist()
-            print("Micromarkets:", micromarkets)
+            session['name'] = name
+            session['mobile'] = mobile
+            session['email'] = email
 
-        if selected_micromarket and budget:
-            budget = float(budget)
+            user = db.users.find_one({'mobile_number': mobile})
+
+            if user:
+                flash("Mobile number already verified. You can proceed to submit the form.")
+            else:
+                result = send_whatsapp_verification(mobile)
+                if result.get('success'):
+                    flash("A WhatsApp verification message has been sent to your mobile number. Please verify to proceed.")
+                else:
+                    flash("Failed to send WhatsApp verification. Please try again.")
+
+            return redirect(url_for('index'))
+
+        elif action == 'submit_form':
+            name = session.get('name')
+            mobile = session.get('mobile')
+            email = session.get('email')
+            property_type = request.form.get('property_type')
+            selected_city = request.form.get('city')
+            selected_micromarket = request.form.get('micromarket')
+            budget = request.form.get('budget')
+
+            if not all([name, mobile, email, property_type, selected_city, selected_micromarket, budget]):
+                flash("All form fields are required.")
+                return redirect(url_for('index'))
+
+            user = db.users.find_one({'mobile_number': mobile})
+
+            if user:
+                db.users.update_one(
+                    {'mobile_number': mobile},
+                    {'$set': {'name': name, 'email': email}},
+                    upsert=True
+                )
+            else:
+                db.users.update_one(
+                    {'mobile_number': mobile},
+                    {'$setOnInsert': {'name': name, 'email': email}},
+                    upsert=True
+                )
+
+            if property_type == 'coworking':
+                data = coworking_data
+
             filtered_properties = data[(data['city'] == selected_city) &
                                        (data['micromarket'] == selected_micromarket) &
-                                       (data['price'] <= budget)]
-            print("Filtered Properties:", filtered_properties)
-            if not filtered_properties.empty:
-                # Check if user already exists
-                user = db.users.find_one({'email': email})
-                if not user:
-                    user_data = {
-                        'name': name,
-                        'email': email,
-                        'mobile_number': mobile
-                    }
-                    user_id = db.users.insert_one(user_data).inserted_id
-                else:
-                    user_id = user['_id']
+                                       (data['price'] <= float(budget))]
 
-                # Send email with property details
-                if send_email(email, name, filtered_properties.to_dict('records')):
-                    # Save property info to MongoDB
-                    property_data = {
-                        'user_id': user_id,
-                        'city': selected_city,
-                        'micromarket': selected_micromarket,
-                        'budget': budget,
+            if send_email(email, name, filtered_properties.to_dict('records')):
+                property_data = {
+                    'user_id': user['_id'],
+                    'city': selected_city,
+                    'micromarket': selected_micromarket,
+                    'budget': float(budget),
+                    'date': datetime.datetime.now()
+                }
+                db.properties.insert_one(property_data)
+
+                if "@gmail.com" in email:
+                    email_log = {
+                        'email': email,
                         'date': datetime.datetime.now()
                     }
-                    db.properties.insert_one(property_data)
-
-                    # Save email log only if it's a Gmail address
-                    if "@gmail.com" in email:
-                        email_log = {
-                            'email': email,
-                            'date': datetime.datetime.now()
-                        }
-                        db.email_logs.insert_one(email_log)
-                else:
-                    flash("Email limit reached for this Gmail address. Please try again later.")
+                    db.email_logs.insert_one(email_log)
+                flash("Email sent successfully.")
             else:
-                flash("No properties found matching your criteria.")
-                
-        else:
-            flash("Please fill in all the required fields.")
+                flash("Email limit reached for this Gmail address. Please try again later.")
 
-    return render_template('index.html',
-                           property_type=property_type,
-                           cities=cities,
-                           micromarkets=micromarkets,
-                           selected_city=selected_city,
-                           selected_micromarket=selected_micromarket,
-                           filtered_properties=None,
-                           has_filtered_properties=False)
+            return redirect(url_for('index'))
+
+    return render_template('index.html')
+
+@app.route('/verify_mobile', methods=['GET'])
+def verify_mobile():
+    token = request.args.get('code')
+    client_id = os.environ.get('CLIENT_ID')
+    client_secret = os.environ.get('CLIENT_SECRET')
+
+    user_details = OTPLessAuthSDK.UserDetail.verify_code(
+        token, client_id, client_secret, None
+    )
+
+    if user_details.get('success'):
+        mobile_number = user_details.get('phone_number').replace("+91", "")
+        name = session.get('name')
+        email = session.get('email')
+
+        db.users.update_one(
+            {'mobile_number': mobile_number},
+            {'$set': {'name': name, 'email': email}},
+            upsert=True
+        )
+        flash("Mobile number verified successfully. You can now submit the form.")
+    else:
+        flash("Failed to verify mobile number. Please try again.")
+
+    return redirect(url_for('index'))
 
 @app.route('/get_cities', methods=['POST'])
 def get_cities():
-    property_type = request.form.get('property_type')
-    if property_type == 'coworking':
-        data = coworking_data
-    else:
-        data = retail_data
-    cities = data['city'].dropna().unique().tolist()
+    data = coworking_data
+    cities = sorted(data['city'].dropna().unique().tolist())
     return jsonify(cities)
 
 @app.route('/get_micromarkets', methods=['POST'])
 def get_micromarkets():
-    property_type = request.form.get('property_type')
     selected_city = request.form.get('city')
-    if property_type == 'coworking':
-        data = coworking_data
-    else:
-        data = retail_data
-    micromarkets = data[data['city'] == selected_city]['micromarket'].dropna().unique().tolist()
+    data = coworking_data
+    micromarkets = sorted(data[data['city'] == selected_city]['micromarket'].dropna().unique().tolist())
     return jsonify(micromarkets)
 
 @app.route('/get_prices', methods=['POST'])
 def get_prices():
-    property_type = request.form.get('property_type')
     selected_city = request.form.get('city')
     selected_micromarket = request.form.get('micromarket')
-    if property_type == 'coworking':
-        data = coworking_data
-    else:
-        data = retail_data
-    prices = data[(data['city'] == selected_city) & (data['micromarket'] == selected_micromarket)]['price'].dropna().unique().tolist()
+    data = coworking_data
+    prices = sorted(data[(data['city'] == selected_city) & (data['micromarket'] == selected_micromarket)]['price'].dropna().unique().tolist())
     return jsonify(prices)
 
 if __name__ == '__main__':
