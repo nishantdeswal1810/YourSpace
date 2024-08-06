@@ -14,6 +14,11 @@ import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+from reportlab.pdfgen import canvas
+from fpdf import FPDF
+from PyPDF2 import PdfReader, PdfWriter, PageObject
+from io import BytesIO
+import requests
 
 # Import the OTPLessAuthSDK library
 import OTPLessAuthSDK
@@ -54,6 +59,102 @@ def check_email_limit(email):
         return email_count < 10
     return True
 
+# def add_dynamic_content_to_pdf(template_path, properties):
+#     packet = BytesIO()
+#     can = canvas.Canvas(packet, pagesize=letter)
+    
+#     can.setFont("Helvetica-Bold", 12)
+
+#     y_position = 700  # Initial y position to start writing
+#     for p in properties:
+#         # Insert property images
+#         for img_url in [p['img1'], p['img2']]:
+#             if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
+#                 try:
+#                     response = requests.get(img_url)
+#                     img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
+#                     img.drawOn(can, 72, y_position - 3*inch)
+#                     y_position -= 3*inch + 15  # Adjust y_position for next image
+#                 except Exception as e:
+#                     print(f"Error processing image {img_url}: {e}")
+#             else:
+#                 print(f"Invalid URL: {img_url}")
+                
+#         # Write the property name
+#         can.drawString(72, y_position, f"Name: {p['name']}")
+#         y_position -= 15
+
+#         # Write the property address
+#         can.drawString(72, y_position, f"Address: {p['micromarket']}, {p['city']}")
+#         y_position -= 15
+
+#         # Write the property details
+#         can.drawString(72, y_position, "Details:")
+#         y_position -= 15
+#         details = p['details']
+#         for line in details.split('\n'):
+#             can.drawString(72, y_position, line)
+#             y_position -= 15
+
+#         # Add some space before the next property
+#         y_position -= 30
+
+#     can.save()
+
+#     packet.seek(0)
+#     new_pdf = PdfReader(packet)
+#     existing_pdf = PdfReader(open(template_path, "rb"))
+#     output = PdfWriter()
+
+#     # Add the content from the existing PDF
+#     page = existing_pdf.pages[0]
+#     page.merge_page(new_pdf.pages[0])
+#     output.add_page(page)
+
+#     output_stream = BytesIO()
+#     output.write(output_stream)
+#     output_stream.seek(0)
+    
+#     return output_stream
+
+def create_dynamic_pdf(properties):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    pdf.set_font("Arial", size=12)
+
+    for p in properties:
+        pdf.cell(200, 10, txt="Property Details", ln=True, align="C")
+        pdf.ln(10)
+
+        pdf.cell(200, 10, txt=f"Name: {p['name']}", ln=True, align="L")
+        pdf.cell(200, 10, txt=f"Address: {p['micromarket']}, {p['city']}", ln=True, align="L")
+        pdf.cell(200, 10, txt="Details:", ln=True, align="L")
+        pdf.multi_cell(200, 10, txt=str(p['details']))
+        pdf.cell(200, 10, txt="About:", ln=True, align="L")
+        pdf.multi_cell(200, 10, txt=str(p['about']))
+        pdf.ln(10)
+
+        # Add images
+        for img_url in [p['img1'], p['img2']]:
+            if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
+                try:
+                    response = requests.get(img_url)
+                    img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
+                    pdf.image(BytesIO(response.content), x=10, y=pdf.get_y(), w=100)
+                    pdf.ln(80)
+                except Exception as e:
+                    print(f"Error processing image {img_url}: {e}")
+            else:
+                print(f"Invalid URL: {img_url}")
+
+    pdf_output = BytesIO()
+    pdf.output(pdf_output)
+    pdf_output.seek(0)
+    return pdf_output
+
+
 def send_email(to_email, name, properties):
     if not check_email_limit(to_email):
         print(f"Email limit reached for {to_email}")
@@ -61,41 +162,40 @@ def send_email(to_email, name, properties):
 
     try:
         if not properties:
+            # Send "sorry" message if no properties are found
             message = Message(subject='No Properties Found',
                               recipients=[to_email],
                               cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
                               html=f"<strong>Dear {name},</strong><br>"
                                    "<strong>We are sorry, but we couldn't find any properties matching your requirements at this time.</strong><br><br>"
                                    "Please try again later or modify your search criteria.")
-        else:
+        else:    
+            # Create dynamic content PDF
+            dynamic_pdf = create_dynamic_pdf(properties)
+
+            # Read the static template PDF
+            static_pdf_path = '/mnt/data/pdffin.pdf'  # Use the uploaded PDF path
+            static_pdf = PdfReader(static_pdf_path)
+
+            # Initialize PdfWriter to create the final PDF
+            output_pdf = PdfWriter()
+
+            # Add static pages 1, 2, and 5
+            output_pdf.add_page(static_pdf.pages[0])
+            output_pdf.add_page(static_pdf.pages[1])
+            
+            # Add dynamic content to pages 3 and 4
+            dynamic_reader = PdfReader(dynamic_pdf)
+            for i in range(len(dynamic_reader.pages)):
+                page = PageObject.create_blank_page(width=dynamic_reader.pages[i].mediabox.width, height=dynamic_reader.pages[i].mediabox.height)
+                page.merge_page(dynamic_reader.pages[i])
+                output_pdf.add_page(page)
+
+            # Add static page 5
+            output_pdf.add_page(static_pdf.pages[4])
+
             pdf_buffer = BytesIO()
-            doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
-            styles = getSampleStyleSheet()
-            styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
-            elements = []
-
-            for p in properties:
-                for img_url in [p['img1'], p['img2']]:
-                    if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
-                        try:
-                            response = requests.get(img_url)
-                            img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
-                            elements.append(img)
-                        except Exception as e:
-                            print(f"Error processing image {img_url}: {e}")
-                    else:
-                        print(f"Invalid URL: {img_url}")
-
-                elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
-                elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
-                elements.append(Paragraph("Details:", styles['Bold']))
-                elements.append(Paragraph(str(p['details']), styles['Normal']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("About:", styles['Bold']))
-                elements.append(Paragraph(str(p['about']), styles['Normal']))
-                elements.append(Spacer(1, 12))
-
-            doc.build(elements)
+            output_pdf.write(pdf_buffer)
             pdf_buffer.seek(0)
 
             message = Message(subject='Your Property Data',
@@ -112,6 +212,90 @@ def send_email(to_email, name, properties):
     except Exception as e:
         print(f"Failed to send email: {e}")
         return False
+    
+# def send_email(to_email, name, properties):
+#     if not check_email_limit(to_email):
+#         print(f"Email limit reached for {to_email}")
+#         return False
+
+#     try:
+#         if not properties:
+#             message = Message(subject='No Properties Found',
+#                               recipients=[to_email],
+#                               cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
+#                               html=f"<strong>Dear {name},</strong><br>"
+#                                    "<strong>We are sorry, but we couldn't find any properties matching your requirements at this time.</strong><br><br>"
+#                                    "Please try again later or modify your search criteria.")
+#         else:
+#             # Path to the prebuilt PDF template in the static folder
+#             template_path = os.path.join('static', 'pdffin.pdf')
+#             pdf_stream = add_dynamic_content_to_pdf(template_path, properties)
+
+#             message = Message(subject='Your Property Data',
+#                             recipients=[to_email],
+#                             cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
+#                             html=f"<strong>Dear {name},</strong><br>"
+#                                 "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
+#                                 "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
+#             message.attach("property_data.pdf", "application/pdf", pdf_stream.read())
+
+#         mail.send(message)
+#         print("Email sent successfully.")
+#         return True
+#     except Exception as e:
+#         print(f"Failed to send email: {e}")
+#         return False
+
+# def send_email(to_email, name, properties):
+#     if not check_email_limit(to_email):
+#         print(f"Email limit reached for {to_email}")
+#         return False
+
+#     try:
+#         pdf_buffer = BytesIO()
+#         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+#         styles = getSampleStyleSheet()
+#         styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
+#         elements = []
+
+#         for p in properties:
+#             for img_url in [p['img1'], p['img2']]:
+#                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
+#                     try:
+#                         response = requests.get(img_url)
+#                         img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
+#                         elements.append(img)
+#                     except Exception as e:
+#                         print(f"Error processing image {img_url}: {e}")
+#                 else:
+#                     print(f"Invalid URL: {img_url}")
+
+#             elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
+#             elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
+#             elements.append(Paragraph("Details:", styles['Bold']))
+#             elements.append(Paragraph(str(p['details']), styles['Normal']))
+#             elements.append(Spacer(1, 12))
+#             elements.append(Paragraph("About:", styles['Bold']))
+#             elements.append(Paragraph(str(p['about']), styles['Normal']))
+#             elements.append(Spacer(1, 12))
+
+#         doc.build(elements)
+#         pdf_buffer.seek(0)
+
+#         message = Message(subject='Your Property Data',
+#                           recipients=[to_email],
+#                           cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
+#                           html=f"<strong>Dear {name},</strong><br>"
+#                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
+#                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
+#         message.attach("property_data.pdf", "application/pdf", pdf_buffer.read())
+
+#         mail.send(message)
+#         print("Email sent successfully.")
+#         return True
+#     except Exception as e:
+#         print(f"Failed to send email: {e}")
+#         return False
 
 def send_whatsapp_verification(mobile):
     client_id = os.environ.get('CLIENT_ID')
@@ -178,9 +362,8 @@ def index():
             selected_city = request.form.get('city')
             selected_micromarket = request.form.get('micromarket')
             budget = request.form.get('budget')
-            seats = request.form.get('seats')  # Get the seats information
 
-            if not all([name, mobile, email, property_type, selected_city, selected_micromarket, budget, seats]):
+            if not all([name, mobile, email, property_type, selected_city, selected_micromarket, budget]):
                 flash("All form fields are required.")
                 return redirect(url_for('index'))
 
@@ -212,7 +395,6 @@ def index():
                     'city': selected_city,
                     'micromarket': selected_micromarket,
                     'budget': float(budget),
-                    'seats': int(seats),  # Store the seats information
                     'date': datetime.datetime.now()
                 }
                 db.properties.insert_one(property_data)
