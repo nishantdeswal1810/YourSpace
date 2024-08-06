@@ -60,43 +60,51 @@ def send_email(to_email, name, properties):
         return False
 
     try:
-        pdf_buffer = BytesIO()
-        doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
-        styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
-        elements = []
+        if not properties:
+            message = Message(subject='No Properties Found',
+                              recipients=[to_email],
+                              cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
+                              html=f"<strong>Dear {name},</strong><br>"
+                                   "<strong>We are sorry, but we couldn't find any properties matching your requirements at this time.</strong><br><br>"
+                                   "Please try again later or modify your search criteria.")
+        else:
+            pdf_buffer = BytesIO()
+            doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+            styles = getSampleStyleSheet()
+            styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
+            elements = []
 
-        for p in properties:
-            for img_url in [p['img1'], p['img2']]:
-                if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
-                    try:
-                        response = requests.get(img_url)
-                        img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
-                        elements.append(img)
-                    except Exception as e:
-                        print(f"Error processing image {img_url}: {e}")
-                else:
-                    print(f"Invalid URL: {img_url}")
+            for p in properties:
+                for img_url in [p['img1'], p['img2']]:
+                    if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
+                        try:
+                            response = requests.get(img_url)
+                            img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
+                            elements.append(img)
+                        except Exception as e:
+                            print(f"Error processing image {img_url}: {e}")
+                    else:
+                        print(f"Invalid URL: {img_url}")
 
-            elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
-            elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
-            elements.append(Paragraph("Details:", styles['Bold']))
-            elements.append(Paragraph(str(p['details']), styles['Normal']))
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("About:", styles['Bold']))
-            elements.append(Paragraph(str(p['about']), styles['Normal']))
-            elements.append(Spacer(1, 12))
+                elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
+                elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
+                elements.append(Paragraph("Details:", styles['Bold']))
+                elements.append(Paragraph(str(p['details']), styles['Normal']))
+                elements.append(Spacer(1, 12))
+                elements.append(Paragraph("About:", styles['Bold']))
+                elements.append(Paragraph(str(p['about']), styles['Normal']))
+                elements.append(Spacer(1, 12))
 
-        doc.build(elements)
-        pdf_buffer.seek(0)
+            doc.build(elements)
+            pdf_buffer.seek(0)
 
-        message = Message(subject='Your Property Data',
-                          recipients=[to_email],
-                          cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
-                          html=f"<strong>Dear {name},</strong><br>"
-                               "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
-                               "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
-        message.attach("property_data.pdf", "application/pdf", pdf_buffer.read())
+            message = Message(subject='Your Property Data',
+                            recipients=[to_email],
+                            cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
+                            html=f"<strong>Dear {name},</strong><br>"
+                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
+                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
+            message.attach("property_data.pdf", "application/pdf", pdf_buffer.read())
 
         mail.send(message)
         print("Email sent successfully.")

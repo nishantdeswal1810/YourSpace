@@ -526,7 +526,7 @@
                             <label for="property_type"></label>
                             <select id="property_type" name="property_type" required>
                                 <option value="coworking">Coworking</option>
-                                <input type="number" id="seats" name="seats" placeholder="How many Seats are required?" required>
+                                <input type="number" id="seats" name="seats" placeholder="How many Seats are required?" min="1" required>
                                 <!-- <option value="retail">Retail</option> -->
                             </select>
                             
@@ -539,7 +539,7 @@
                             <input type="text" id="micromarket" name="micromarket" list="micromarket-list" placeholder="What is your preferred Area?" required>
                             <datalist id="micromarket-list"></datalist>
                             <label for="budget"></label>
-                            <input type="number" id="budget" name="budget" list="budget-list" placeholder="What is your Budget?" required>
+                            <input type="number" id="budget" name="budget" list="budget-list" placeholder="What is your Budget?" min="1" required>
                             <datalist id="budget-list"></datalist>
                         </div>
                         <button type="submit">Get Enquiry</button>
