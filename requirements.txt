@@ -11,6 +11,7 @@ dnspython
 python-dotenv
 OTPLessAuthSDK
 apscheduler
+PyPDF2
 
 
 # gcloud app deploy app.yaml --project=coworkingspaceschatbot-tmva
