@@ -178,8 +178,9 @@ def index():
             selected_city = request.form.get('city')
             selected_micromarket = request.form.get('micromarket')
             budget = request.form.get('budget')
+            seats = request.form.get('seats')  # Get the seats information
 
-            if not all([name, mobile, email, property_type, selected_city, selected_micromarket, budget]):
+            if not all([name, mobile, email, property_type, selected_city, selected_micromarket, budget, seats]):
                 flash("All form fields are required.")
                 return redirect(url_for('index'))
 
@@ -211,6 +212,7 @@ def index():
                     'city': selected_city,
                     'micromarket': selected_micromarket,
                     'budget': float(budget),
+                    'seats': int(seats),  # Store the seats information
                     'date': datetime.datetime.now()
                 }
                 db.properties.insert_one(property_data)
