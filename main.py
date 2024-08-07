@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, flash, redirect, url
 from flask_mail import Mail, Message
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image,PageBreak
 from reportlab.lib.units import inch
 import requests
 from io import BytesIO
@@ -145,9 +145,11 @@ def send_email(to_email, name, properties):
         static_pdf_path = os.path.join('static', 'pdffin.pdf')
         static_pdf = PdfReader(static_pdf_path)
 
+        custom_page_size = (925 * 72 / 96, 527 * 72 / 96)
+        
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
-        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=letter)
+        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=custom_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()
         styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
         elements = []
@@ -172,6 +174,7 @@ def send_email(to_email, name, properties):
             elements.append(Paragraph("About:", styles['Bold']))
             elements.append(Paragraph(str(p['about']), styles['Normal']))
             elements.append(Spacer(1, 12))
+            elements.append(PageBreak())
 
         doc.build(elements)
         dynamic_pdf_buffer.seek(0)
