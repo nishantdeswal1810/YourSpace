@@ -228,7 +228,7 @@ def send_email(to_email, name, properties):
         static_pdf_path = os.path.join('static', 'pdffin.pdf')
         static_pdf = PdfReader(static_pdf_path)
 
-        custom_page_size = (925 * 72 / 96, 527 * 72 / 96)
+        custom_page_size = (925 * 72 / 96, 925 * 72 / 96)
 
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
