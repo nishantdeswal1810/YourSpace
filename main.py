@@ -228,7 +228,7 @@ def send_email(to_email, name, properties):
         static_pdf_path = os.path.join('static', 'pdffin.pdf')
         static_pdf = PdfReader(static_pdf_path)
 
-        custom_page_size = (925 * 72 / 96, 925 * 72 / 96)
+        custom_page_size = (600, 255)
 
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
@@ -241,34 +241,42 @@ def send_email(to_email, name, properties):
 
         for i, p in enumerate(properties, start=1):
             property_elements = []
+
+            # Add property option title
             property_elements.append(Paragraph(f"Option {i}", styles['OptionTitle']))
             property_elements.append(Spacer(1, 12))
 
-            # Add property name
-            property_elements.append(Paragraph(f"Name: <b>{p['name']}</b>", styles['SubHeading']))
-            property_elements.append(Spacer(1, 12))
+            # Add property details on the left
+            details_elements = []
+            details_elements.append(Paragraph(f"Name: <b>{p['name']}</b>", styles['SubHeading']))
+            details_elements.append(Spacer(1, 12))
+            details_elements.append(Paragraph(f"Address: <b>{p['address']}</b>", styles['SubHeading']))
+            details_elements.append(Spacer(1, 12))
+            details_elements.append(Paragraph(f"Details: <b>{p['details']}</b>", styles['SubHeading']))
+            details_elements.append(Spacer(1, 20))
 
-            # Add property address
-            property_elements.append(Paragraph(f"Address: <b>{p['address']}</b>", styles['SubHeading']))
-            property_elements.append(Spacer(1, 12))
-
-            # Add property details
-            property_elements.append(Paragraph(f"Details: <b>{p['details']}</b>", styles['SubHeading']))
-            property_elements.append(Spacer(1, 12))
-
-            # Add property images
+            # Add property images on the right
+            images_elements = []
             for img_url in [p['img1'], p['img2']]:
                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
                     try:
                         response = requests.get(img_url)
                         img = Image(BytesIO(response.content), width=3*inch, height=2.25*inch)
-                        property_elements.append(img)
-                        property_elements.append(Spacer(1, 12))
+                        images_elements.append(img)
+                        images_elements.append(Spacer(1, 12))
                     except Exception as e:
                         print(f"Error processing images {img_url}: {e}")
                 else:
                     print(f"Invalid URL: {img_url}")
 
+            # Combine details and images into a table
+            data = [[KeepTogether(details_elements), KeepTogether(images_elements)]]
+            table = Table(data, colWidths=[3.5*inch, 2.5*inch])
+            table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP')
+            ]))
+
+            property_elements.append(table)
             elements.append(KeepTogether(property_elements))
             elements.append(PageBreak())
 
