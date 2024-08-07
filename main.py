@@ -228,11 +228,12 @@ def send_email(to_email, name, properties):
         static_pdf_path = os.path.join('static', 'pdffin.pdf')
         static_pdf = PdfReader(static_pdf_path)
 
-        custom_page_size = (925 * 72 / 96, 825 * 72 / 96)
+        static_page = static_pdf.pages[0]
+        static_page_size = (static_page.mediabox.width, static_page.mediabox.height)
 
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
-        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=custom_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()
         styles.add(ParagraphStyle(name='OptionTitle', fontName='Helvetica-Bold', fontSize=24, spaceAfter=20))
         styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=14, spaceAfter=10))
