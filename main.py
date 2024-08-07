@@ -104,7 +104,7 @@ def check_email_limit(email):
 
 #         mail.send(message)
 #         print("Email sent successfully.")
-#         return True
+#         return Truea
 #     except Exception as e:
 #         print(f"Failed to send email: {e}")
 #         return False
