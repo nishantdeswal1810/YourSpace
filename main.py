@@ -109,22 +109,101 @@ def check_email_limit(email):
 #         print(f"Failed to send email: {e}")
 #         return False
 
+
+#send_email for staic pdf
+# def send_email(to_email, name, properties):
+#     if not check_email_limit(to_email):
+#         print(f"Email limit reached for {to_email}")
+#         return False
+
+#     try:
+#         pdf_path = os.path.join('static', 'pdffin.pdf')
+
+#         message = Message(subject='Your Property Data',
+#                           recipients=[to_email],
+#                           cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
+#                           html=f"<strong>Dear {name},</strong><br>"
+#                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
+#                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
+#         with open(pdf_path, 'rb') as pdf_file:
+#             message.attach("property_data.pdf", "application/pdf", pdf_file.read())
+
+#         mail.send(message)
+#         print("Email sent successfully.")
+#         return True
+#     except Exception as e:
+#         print(f"Failed to send email: {e}")
+#         return False
+
 def send_email(to_email, name, properties):
     if not check_email_limit(to_email):
         print(f"Email limit reached for {to_email}")
         return False
 
     try:
-        pdf_path = os.path.join('static', 'pdffin.pdf')
+        # Load the predesigned PDF and extract static pages
+        static_pdf_path = os.path.join('static', 'pdffin.pdf')
+        static_pdf = PdfReader(static_pdf_path)
 
+        # Create a new PDF for the dynamic content
+        dynamic_pdf_buffer = BytesIO()
+        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
+        elements = []
+
+        for p in properties:
+            for img_url in [p['img1'], p['img2']]:
+                if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
+                    try:
+                        response = requests.get(img_url)
+                        img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
+                        elements.append(img)
+                    except Exception as e:
+                        print(f"Error processing image {img_url}: {e}")
+                else:
+                    print(f"Invalid URL: {img_url}")
+
+            elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
+            elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
+            elements.append(Paragraph("Details:", styles['Bold']))
+            elements.append(Paragraph(str(p['details']), styles['Normal']))
+            elements.append(Spacer(1, 12))
+            elements.append(Paragraph("About:", styles['Bold']))
+            elements.append(Paragraph(str(p['about']), styles['Normal']))
+            elements.append(Spacer(1, 12))
+
+        doc.build(elements)
+        dynamic_pdf_buffer.seek(0)
+        dynamic_pdf = PdfReader(dynamic_pdf_buffer)
+
+        # Merge static and dynamic PDFs
+        output_pdf = PdfWriter()
+
+        # Add static pages (pages 1, 2, and 5 from the original PDF)
+        output_pdf.add_page(static_pdf.pages[0])
+        output_pdf.add_page(static_pdf.pages[1])
+
+        # Add dynamic content as page 4
+        for page in dynamic_pdf.pages:
+            output_pdf.add_page(page)
+
+        # Add static page 5 from the original PDF
+        output_pdf.add_page(static_pdf.pages[4])
+
+        # Save the combined PDF to a buffer
+        combined_pdf_buffer = BytesIO()
+        output_pdf.write(combined_pdf_buffer)
+        combined_pdf_buffer.seek(0)
+
+        # Create email message and attach the combined PDF
         message = Message(subject='Your Property Data',
                           recipients=[to_email],
                           cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
                           html=f"<strong>Dear {name},</strong><br>"
                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
-        with open(pdf_path, 'rb') as pdf_file:
-            message.attach("property_data.pdf", "application/pdf", pdf_file.read())
+        message.attach("property_data.pdf", "application/pdf", combined_pdf_buffer.read())
 
         mail.send(message)
         print("Email sent successfully.")
@@ -132,7 +211,7 @@ def send_email(to_email, name, properties):
     except Exception as e:
         print(f"Failed to send email: {e}")
         return False
-
+    
 def send_whatsapp_verification(mobile):
     client_id = os.environ.get('CLIENT_ID')
     client_secret = os.environ.get('CLIENT_SECRET')
