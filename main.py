@@ -265,7 +265,7 @@ def send_email(to_email, name, properties):
                         property_elements.append(img)
                         property_elements.append(Spacer(1, 12))
                     except Exception as e:
-                        print(f"Error processing image {img_url}: {e}")
+                        print(f"Error processing images {img_url}: {e}")
                 else:
                     print(f"Invalid URL: {img_url}")
 
