@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, flash, redirect, url
 from flask_mail import Mail, Message
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image,PageBreak, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image,PageBreak, Table, TableStyle,KeepTogether
 from reportlab.lib.units import inch
 import requests
 from io import BytesIO
@@ -240,34 +240,36 @@ def send_email(to_email, name, properties):
         elements = []
 
         for i, p in enumerate(properties, start=1):
-            elements.append(Paragraph(f"Option {i}", styles['OptionTitle']))
-            elements.append(Spacer(1, 12))
+            property_elements = []
+            property_elements.append(Paragraph(f"Option {i}", styles['OptionTitle']))
+            property_elements.append(Spacer(1, 12))
 
             # Add property name
-            elements.append(Paragraph(f"Name: <b>{p['name']}</b>", styles['SubHeading']))
-            elements.append(Spacer(1, 12))
+            property_elements.append(Paragraph(f"Name: <b>{p['name']}</b>", styles['SubHeading']))
+            property_elements.append(Spacer(1, 12))
 
             # Add property address
-            elements.append(Paragraph(f"Address: <b>{p['address']}</b>", styles['SubHeading']))
-            elements.append(Spacer(1, 12))
+            property_elements.append(Paragraph(f"Address: <b>{p['address']}</b>", styles['SubHeading']))
+            property_elements.append(Spacer(1, 12))
 
             # Add property details
-            elements.append(Paragraph(f"Details: <b>{p['details']}</b>", styles['SubHeading']))
-            elements.append(Spacer(1, 12))
+            property_elements.append(Paragraph(f"Details: <b>{p['details']}</b>", styles['SubHeading']))
+            property_elements.append(Spacer(1, 12))
 
-            # Add property image
+            # Add property images
             for img_url in [p['img1'], p['img2']]:
                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
                     try:
                         response = requests.get(img_url)
                         img = Image(BytesIO(response.content), width=3*inch, height=2.25*inch)
-                        elements.append(img)
-                        elements.append(Spacer(1, 12))
+                        property_elements.append(img)
+                        property_elements.append(Spacer(1, 12))
                     except Exception as e:
                         print(f"Error processing image {img_url}: {e}")
                 else:
                     print(f"Invalid URL: {img_url}")
 
+            elements.append(KeepTogether(property_elements))
             elements.append(PageBreak())
 
         doc.build(elements)
