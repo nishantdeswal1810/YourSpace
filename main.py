@@ -202,7 +202,7 @@ def index():
                 if result.get('success'):
                     flash("A WhatsApp verification message has been sent to your mobile number. Please verify to proceed.")
                 else:
-                    flash("Failed to send WhatsApp verification. Please try again.")
+                    flash("Failed to send WhatsApp verification.Please try again.")
 
             return redirect(url_for('index'))
 
