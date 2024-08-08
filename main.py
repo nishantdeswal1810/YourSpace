@@ -220,7 +220,7 @@ def check_email_limit(email):
 
 from PIL import Image as PILImage, ImageDraw, ImageFont
 
-def generate_property_image_with_full_grid(option_number, name, address, details, images, img_width, img_height):
+def generate_property_image(option_number, name, address, details, images, img_width, img_height):
     # Create a blank white image
     background_color = (255, 255, 255)
     img = PILImage.new('RGB', (img_width, img_height), background_color)
@@ -231,16 +231,6 @@ def generate_property_image_with_full_grid(option_number, name, address, details
     title_font = ImageFont.truetype(font_path, 64)
     heading_font = ImageFont.truetype(font_path, 40)
     content_font = ImageFont.truetype(font_path, 36)
-    grid_font = ImageFont.truetype(font_path, 20)
-
-    # Draw grid lines and coordinates
-    grid_color = (200, 200, 200)
-    for x in range(0, img_width, 100):
-        draw.line([(x, 0), (x, img_height)], fill=grid_color)
-        draw.text((x, 0), str(x), font=grid_font, fill="black")
-    for y in range(0, img_height, 100):
-        draw.line([(0, y), (img_width, y)], fill=grid_color)
-        draw.text((0, y), str(y), font=grid_font, fill="black")
 
     # Draw text on the image
     draw.text((20, 30), f"Option {option_number}", font=title_font, fill="#151D31")
@@ -291,7 +281,7 @@ def send_email(to_email, name, properties):
 
         for i, p in enumerate(properties, start=1):
             property_images = [p['img1'], p['img2']]
-            img = generate_property_image_with_full_grid(i, p['name'], p['address'], p['details'], property_images, img_width, img_height)
+            img = generate_property_image(i, p['name'], p['address'], p['details'], property_images, img_width, img_height)
             img_buffer = BytesIO()
             img.save(img_buffer, format="PNG")
             img_buffer.seek(0)
