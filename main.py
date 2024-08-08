@@ -228,27 +228,27 @@ def generate_property_image(option_number, name, address, details, images, img_w
 
     # Load a font
     font_path = 'arial.ttf'  # Update this path to the location of your .ttf file
-    title_font = ImageFont.truetype(font_path, 40)
+    title_font = ImageFont.truetype(font_path, 64)
     heading_font = ImageFont.truetype(font_path, 30)
-    content_font = ImageFont.truetype(font_path, 24)
+    content_font = ImageFont.truetype(font_path, 34)
 
     # Draw text on the image
-    draw.text((50, 30), f"Option {option_number}", font=title_font, fill="blue")
-    draw.text((50, 100), "Name:", font=heading_font, fill="black")
-    draw.text((150, 100), name, font=content_font, fill="black")
-    draw.text((50, 160), "Address:", font=heading_font, fill="black")
-    draw.text((150, 160), address, font=content_font, fill="black")
-    draw.text((50, 220), "Details:", font=heading_font, fill="black")
-    draw.text((150, 220), details, font=content_font, fill="black")
+    draw.text((20, 30), f"Option {option_number}", font=title_font, fill="blue")
+    draw.text((20, 120), "Name:", font=heading_font, fill="black")
+    draw.text((120, 120), name, font=content_font, fill="black")
+    draw.text((20, 180), "Address:", font=heading_font, fill="black")
+    draw.text((120, 180), address, font=content_font, fill="black")
+    draw.text((20, 240), "Details:", font=heading_font, fill="black")
+    draw.text((120, 240), details, font=content_font, fill="black")
 
     # Add property images
-    img_y = 300
+    img_y = 100
     for i, img_url in enumerate(images):
         if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
             try:
                 response = requests.get(img_url)
                 img_content = PILImage.open(BytesIO(response.content))
-                img_content.thumbnail((400, 300))  # Resize image
+                img_content.thumbnail((400, 400))  # Resize image
                 img.paste(img_content, (img_width - 450, img_y))
                 img_y += 320
             except Exception as e:
