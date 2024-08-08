@@ -229,8 +229,8 @@ def generate_property_image_with_full_grid(option_number, name, address, details
     # Load a font
     font_path = 'arial.ttf'  # Update this path to the location of your .ttf file
     title_font = ImageFont.truetype(font_path, 64)
-    heading_font = ImageFont.truetype(font_path, 30)
-    content_font = ImageFont.truetype(font_path, 34)
+    heading_font = ImageFont.truetype(font_path, 40)
+    content_font = ImageFont.truetype(font_path, 36)
     grid_font = ImageFont.truetype(font_path, 20)
 
     # Draw grid lines and coordinates
@@ -243,13 +243,13 @@ def generate_property_image_with_full_grid(option_number, name, address, details
         draw.text((0, y), str(y), font=grid_font, fill="black")
 
     # Draw text on the image
-    draw.text((20, 30), f"Option {option_number}", font=title_font, fill="blue")
-    draw.text((20, 120), "Name:", font=heading_font, fill="black")
-    draw.text((120, 120), name, font=content_font, fill="black")
-    draw.text((20, 180), "Address:", font=heading_font, fill="black")
-    draw.text((120, 180), address, font=content_font, fill="black")
-    draw.text((20, 240), "Details:", font=heading_font, fill="black")
-    draw.text((120, 240), details, font=content_font, fill="black")
+    draw.text((20, 30), f"Option {option_number}", font=title_font, fill="#151D31")
+    draw.text((20, 180), "Name:", font=heading_font, fill="#333738")
+    draw.text((190, 180), name, font=content_font, fill="#0E0F11")
+    draw.text((20, 260), "Address:", font=heading_font, fill="#333738")
+    draw.text((190, 260), address, font=content_font, fill="#0E0F11")
+    draw.text((20, 340), "Details:", font=heading_font, fill="#333738")
+    draw.text((190, 340), details, font=content_font, fill="#0E0F11")
 
     # Add property images
     img_y = 100
