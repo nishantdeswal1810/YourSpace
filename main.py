@@ -218,6 +218,46 @@ def check_email_limit(email):
 #         return False
     
 
+from PIL import Image as PILImage, ImageDraw, ImageFont
+
+def generate_property_image(option_number, name, address, details, images, img_width, img_height):
+    # Create a blank white image
+    background_color = (255, 255, 255)
+    img = PILImage.new('RGB', (img_width, img_height), background_color)
+    draw = ImageDraw.Draw(img)
+
+    # Load a font
+    font_path = 'arial.ttf'  # Update this path to the location of your .ttf file
+    title_font = ImageFont.truetype(font_path, 40)
+    heading_font = ImageFont.truetype(font_path, 30)
+    content_font = ImageFont.truetype(font_path, 24)
+
+    # Draw text on the image
+    draw.text((50, 30), f"Option {option_number}", font=title_font, fill="blue")
+    draw.text((50, 100), "Name:", font=heading_font, fill="black")
+    draw.text((150, 100), name, font=content_font, fill="black")
+    draw.text((50, 160), "Address:", font=heading_font, fill="black")
+    draw.text((150, 160), address, font=content_font, fill="black")
+    draw.text((50, 220), "Details:", font=heading_font, fill="black")
+    draw.text((150, 220), details, font=content_font, fill="black")
+
+    # Add property images
+    img_y = 300
+    for i, img_url in enumerate(images):
+        if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
+            try:
+                response = requests.get(img_url)
+                img_content = PILImage.open(BytesIO(response.content))
+                img_content.thumbnail((400, 300))  # Resize image
+                img.paste(img_content, (img_width - 450, img_y))
+                img_y += 320
+            except Exception as e:
+                print(f"Error processing image {img_url}: {e}")
+        else:
+            print(f"Invalid URL: {img_url}")
+
+    return img
+
 def send_email(to_email, name, properties):
     if not check_email_limit(to_email):
         print(f"Email limit reached for {to_email}")
@@ -231,50 +271,21 @@ def send_email(to_email, name, properties):
         static_page = static_pdf.pages[0]
         static_page_size = (static_page.mediabox.width, static_page.mediabox.height)
 
+        # Define image dimensions
+        img_width, img_height = 1200, 800
+
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
-        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36,allowSplitting=0)
-        styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='OptionTitle', fontName='Helvetica-Bold', fontSize=64, spaceAfter=70))
-        styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=20, spaceAfter=32))
-        styles.add(ParagraphStyle(name='Content', fontName='Helvetica', fontSize=24, spaceAfter=32))
-        styles.add(ParagraphStyle(name='SubHeadingContent', fontName='Helvetica', fontSize=12, spaceAfter=32,leading=24))
+        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         elements = []
 
         for i, p in enumerate(properties, start=1):
-            property_elements = []
-            property_elements.append(Paragraph(f"Option {i}", styles['OptionTitle']))
-            property_elements.append(Spacer(1, 12))
-
-           # Add property name
-            property_elements.append(Paragraph(f"Name:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['name']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
-
-            # Add property address
-            property_elements.append(Paragraph(f"Address:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['address']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
-
-            # Add property details
-            property_elements.append(Paragraph(f"Details:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['details']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
-
-            # Add property images
-            for img_url in [p['img1'], p['img2']]:
-                if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
-                    try:
-                        response = requests.get(img_url)
-                        img = Image(BytesIO(response.content), width=7*inch, height=5*inch)
-                        property_elements.append(img)
-                        property_elements.append(Spacer(1, 20))
-                    except Exception as e:
-                        print(f"Error processing image {img_url}: {e}")
-                else:
-                    print(f"Invalid URL: {img_url}")
-
-            elements.append(KeepTogether(property_elements))
+            property_images = [p['img1'], p['img2']]
+            img = generate_property_image(i, p['name'], p['address'], p['details'], property_images, img_width, img_height)
+            img_buffer = BytesIO()
+            img.save(img_buffer, format="PNG")
+            img_buffer.seek(0)
+            elements.append(Image(img_buffer, width=img_width * 0.75, height=img_height * 0.75))
             elements.append(PageBreak())
 
         doc.build(elements)
@@ -315,7 +326,9 @@ def send_email(to_email, name, properties):
     except Exception as e:
         print(f"Failed to send email: {e}")
         return False
-    
+
+
+
 def send_whatsapp_verification(mobile):
     client_id = os.environ.get('CLIENT_ID')
     client_secret = os.environ.get('CLIENT_SECRET')
