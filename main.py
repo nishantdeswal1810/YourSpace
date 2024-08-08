@@ -246,20 +246,20 @@ def send_email(to_email, name, properties):
             property_elements.append(Paragraph(f"Option {i}", styles['OptionTitle']))
             property_elements.append(Spacer(1, 12))
 
-           # Add property name
-            property_elements.append(Paragraph(f"Name:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['name']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
+            property_details = []
+            property_images = []
 
-            # Add property address
-            property_elements.append(Paragraph(f"Address:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['address']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
+            property_details.append(Paragraph(f"Name:", styles['SubHeading']))
+            property_details.append(Paragraph(f"<font size=18>{p['name']}</font>", styles['SubHeadingContent']))
+            property_details.append(Spacer(1, 20))
 
-            # Add property details
-            property_elements.append(Paragraph(f"Details:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['details']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
+            property_details.append(Paragraph(f"Address:", styles['SubHeading']))
+            property_details.append(Paragraph(f"<font size=18>{p['address']}</font>", styles['SubHeadingContent']))
+            property_details.append(Spacer(1, 20))
+
+            property_details.append(Paragraph(f"Details:", styles['SubHeading']))
+            property_details.append(Paragraph(f"<font size=18>{p['details']}</font>", styles['SubHeadingContent']))
+            property_details.append(Spacer(1, 20))
 
             # Add property images
             for img_url in [p['img1'], p['img2']]:
@@ -273,6 +273,16 @@ def send_email(to_email, name, properties):
                         print(f"Error processing image {img_url}: {e}")
                 else:
                     print(f"Invalid URL: {img_url}")
+
+            # Create table with two columns for details and images
+            data = [
+                [KeepTogether(property_details), KeepTogether(property_images)]
+            ]
+            table = Table(data, colWidths=[static_page_size[0]/2 - 72, static_page_size[0]/2 - 72])
+            table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP')
+            ]))
+            property_elements.append(table)
 
             elements.append(KeepTogether(property_elements))
             elements.append(PageBreak())
