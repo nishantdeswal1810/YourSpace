@@ -233,7 +233,7 @@ def send_email(to_email, name, properties):
 
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
-        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36,allowSplitting=0)
         styles = getSampleStyleSheet()
         styles.add(ParagraphStyle(name='OptionTitle', fontName='Helvetica-Bold', fontSize=64, spaceAfter=70))
         styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=20, spaceAfter=32))
