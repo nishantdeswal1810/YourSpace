@@ -220,7 +220,7 @@ def check_email_limit(email):
 
 from PIL import Image as PILImage, ImageDraw, ImageFont
 
-def generate_property_image(option_number, name, address, details, images, img_width, img_height):
+def generate_property_image_with_full_grid(option_number, name, address, details, images, img_width, img_height):
     # Create a blank white image
     background_color = (255, 255, 255)
     img = PILImage.new('RGB', (img_width, img_height), background_color)
@@ -231,6 +231,16 @@ def generate_property_image(option_number, name, address, details, images, img_w
     title_font = ImageFont.truetype(font_path, 64)
     heading_font = ImageFont.truetype(font_path, 30)
     content_font = ImageFont.truetype(font_path, 34)
+    grid_font = ImageFont.truetype(font_path, 20)
+
+    # Draw grid lines and coordinates
+    grid_color = (200, 200, 200)
+    for x in range(0, img_width, 100):
+        draw.line([(x, 0), (x, img_height)], fill=grid_color)
+        draw.text((x, 0), str(x), font=grid_font, fill="black")
+    for y in range(0, img_height, 100):
+        draw.line([(0, y), (img_width, y)], fill=grid_color)
+        draw.text((0, y), str(y), font=grid_font, fill="black")
 
     # Draw text on the image
     draw.text((20, 30), f"Option {option_number}", font=title_font, fill="blue")
@@ -250,7 +260,7 @@ def generate_property_image(option_number, name, address, details, images, img_w
                 img_content = PILImage.open(BytesIO(response.content))
                 img_content.thumbnail((400, 400))  # Resize image
                 img.paste(img_content, (img_width - 450, img_y))
-                img_y += 320
+                img_y += 420
             except Exception as e:
                 print(f"Error processing image {img_url}: {e}")
         else:
@@ -271,8 +281,8 @@ def send_email(to_email, name, properties):
         static_page = static_pdf.pages[0]
         static_page_size = (static_page.mediabox.width, static_page.mediabox.height)
 
-        # Define image dimensions
-        img_width, img_height = 1200, 800
+        # Define image dimensions to match the PDF page size more closely
+        img_width, img_height = int(static_page_size[0]), int(static_page_size[1])
 
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
@@ -281,7 +291,7 @@ def send_email(to_email, name, properties):
 
         for i, p in enumerate(properties, start=1):
             property_images = [p['img1'], p['img2']]
-            img = generate_property_image(i, p['name'], p['address'], p['details'], property_images, img_width, img_height)
+            img = generate_property_image_with_full_grid(i, p['name'], p['address'], p['details'], property_images, img_width, img_height)
             img_buffer = BytesIO()
             img.save(img_buffer, format="PNG")
             img_buffer.seek(0)
