@@ -235,10 +235,10 @@ def send_email(to_email, name, properties):
         dynamic_pdf_buffer = BytesIO()
         doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36,allowSplitting=0)
         styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='OptionTitle', fontName='Helvetica-Bold', fontSize=64, spaceAfter=70))
-        styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=20, spaceAfter=32))
-        styles.add(ParagraphStyle(name='Content', fontName='Helvetica', fontSize=24, spaceAfter=32))
-        styles.add(ParagraphStyle(name='SubHeadingContent', fontName='Helvetica', fontSize=12, spaceAfter=32,leading=24))
+        styles.add(ParagraphStyle(name='OptionTitle', fontName='Helvetica-Bold', fontSize=36, spaceAfter=20))
+        styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=14, spaceAfter=20))
+        styles.add(ParagraphStyle(name='Content', fontName='Helvetica', fontSize=12, spaceAfter=10))
+        styles.add(ParagraphStyle(name='SubHeadingContent', fontName='Helvetica', fontSize=12, spaceAfter=10,leading=14))
         elements = []
 
         for i, p in enumerate(properties, start=1):
@@ -246,33 +246,43 @@ def send_email(to_email, name, properties):
             property_elements.append(Paragraph(f"Option {i}", styles['OptionTitle']))
             property_elements.append(Spacer(1, 12))
 
-           # Add property name
-            property_elements.append(Paragraph(f"Name:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['name']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
+            property_details = []
+            property_images = []
 
-            # Add property address
-            property_elements.append(Paragraph(f"Address:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['address']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
+            property_details.append(Paragraph(f"Name:", styles['SubHeading']))
+            property_details.append(Paragraph(f"<font size=18>{p['name']}</font>", styles['SubHeadingContent']))
+            property_details.append(Spacer(1, 10))
 
-            # Add property details
-            property_elements.append(Paragraph(f"Details:", styles['SubHeading']))
-            property_elements.append(Paragraph(f"<font size=18>{p['details']}</font>", styles['SubHeadingContent']))
-            property_elements.append(Spacer(1, 20))
+            property_details.append(Paragraph(f"Address:", styles['SubHeading']))
+            property_details.append(Paragraph(f"<font size=18>{p['address']}</font>", styles['SubHeadingContent']))
+            property_details.append(Spacer(1, 10))
+
+            property_details.append(Paragraph(f"Details:", styles['SubHeading']))
+            property_details.append(Paragraph(f"<font size=18>{p['details']}</font>", styles['SubHeadingContent']))
+            property_details.append(Spacer(1, 10))
 
             # Add property images
             for img_url in [p['img1'], p['img2']]:
                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
                     try:
                         response = requests.get(img_url)
-                        img = Image(BytesIO(response.content), width=7*inch, height=5*inch)
+                        img = Image(BytesIO(response.content), width=2.5*inch, height=2*inch)
                         property_elements.append(img)
-                        property_elements.append(Spacer(1, 20))
+                        property_elements.append(Spacer(1, 10))
                     except Exception as e:
                         print(f"Error processing image {img_url}: {e}")
                 else:
                     print(f"Invalid URL: {img_url}")
+
+            # Create table with two columns for details and images
+            data = [
+                [KeepTogether(property_details), KeepTogether(property_images)]
+            ]
+            table = Table(data, colWidths=[static_page_size[0]/2 - 72, static_page_size[0]/2 - 72])
+            table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP')
+            ]))
+            property_elements.append(table)
 
             elements.append(KeepTogether(property_elements))
             elements.append(PageBreak())
