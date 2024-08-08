@@ -266,7 +266,7 @@ def send_email(to_email, name, properties):
                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
                     try:
                         response = requests.get(img_url)
-                        img = Image(BytesIO(response.content), width=7*inch, height=5*inch)
+                        img = Image(BytesIO(response.content), width=3*inch, height=2.5*inch)
                         property_elements.append(img)
                         property_elements.append(Spacer(1, 20))
                     except Exception as e:
