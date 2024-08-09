@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, flash, redirect, url
 from flask_mail import Mail, Message
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image,PageBreak, Table, TableStyle,KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak, Table, TableStyle
 from reportlab.lib.units import inch
 import requests
 from io import BytesIO
@@ -14,12 +14,7 @@ import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
-from reportlab.pdfgen import canvas
-from fpdf import FPDF
-from PyPDF2 import PdfReader, PdfWriter, PageObject
-
-
-# Import the OTPLessAuthSDK library
+from PyPDF2 import PdfReader, PdfWriter
 import OTPLessAuthSDK
 
 load_dotenv()
@@ -58,205 +53,42 @@ def check_email_limit(email):
         return email_count < 10
     return True
 
-# def send_email(to_email, name, properties):
-#     if not check_email_limit(to_email):
-#         print(f"Email limit reached for {to_email}")
-#         return False
+def generate_property_pdf(properties, doc, styles):
+    elements = []
 
-#     try:
-#         pdf_buffer = BytesIO()
-#         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
-#         styles = getSampleStyleSheet()
-#         styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
-#         elements = []
+    # Define updated styles with larger font size and appropriate spacing
+    styles.add(ParagraphStyle(name='EnhancedHeading', fontName='Helvetica-Bold', fontSize=32, spaceAfter=24))
+    styles.add(ParagraphStyle(name='EnhancedNormal', fontName='Helvetica', fontSize=24, spaceAfter=16, leading=28))  # Increased leading to avoid overlapping
 
-#         for p in properties:
-#             for img_url in [p['img1'], p['img2']]:
-#                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
-#                     try:
-#                         response = requests.get(img_url)
-#                         img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
-#                         elements.append(img)
-#                     except Exception as e:
-#                         print(f"Error processing image {img_url}: {e}")
-#                 else:
-#                     print(f"Invalid URL: {img_url}")
+    for i, p in enumerate(properties, start=1):
+        elements.append(Paragraph(f"Option {i}", styles['EnhancedHeading']))
+        elements.append(Spacer(1, 16))
+        elements.append(Paragraph(f"Name: {p['name']}", styles['EnhancedNormal']))
+        elements.append(Spacer(1, 16))
+        elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['EnhancedNormal']))
+        elements.append(Spacer(1, 16))
+        elements.append(Paragraph(f"Details: {p['details']}", styles['EnhancedNormal']))
+        elements.append(Spacer(1, 32))
 
-#             elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
-#             elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
-#             elements.append(Paragraph("Details:", styles['Bold']))
-#             elements.append(Paragraph(str(p['details']), styles['Normal']))
-#             elements.append(Spacer(1, 12))
-#             elements.append(Paragraph("About:", styles['Bold']))
-#             elements.append(Paragraph(str(p['about']), styles['Normal']))
-#             elements.append(Spacer(1, 12))
+        # Adjust image size, position, and add white space between them
+        table_data = [[Image(BytesIO(requests.get(p['img1']).content), width=6.0*inch, height=5.0*inch),  # Increased size
+                       Spacer(0.5*inch, 0),  # Add some space between images
+                       Image(BytesIO(requests.get(p['img2']).content), width=6.0*inch, height=5.0*inch)]]  # Increased size
 
-#         doc.build(elements)
-#         pdf_buffer.seek(0)
+        image_table = Table(table_data)
+        image_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
 
-#         message = Message(subject='Your Property Data',
-#                           recipients=[to_email],
-#                           cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
-#                           html=f"<strong>Dear {name},</strong><br>"
-#                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
-#                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
-#         message.attach("property_data.pdf", "application/pdf", pdf_buffer.read())
+        elements.append(image_table)
 
-#         mail.send(message)
-#         print("Email sent successfully.")
-#         return Truea
-#     except Exception as e:
-#         print(f"Failed to send email: {e}")
-#         return False
+        elements.append(PageBreak())  # Add a page break after each property
 
+    doc.build(elements)
 
-#send_email for staic pdf
-# def send_email(to_email, name, properties):
-#     if not check_email_limit(to_email):
-#         print(f"Email limit reached for {to_email}")
-#         return False
-
-#     try:
-#         pdf_path = os.path.join('static', 'pdffin.pdf')
-
-#         message = Message(subject='Your Property Data',
-#                           recipients=[to_email],
-#                           cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
-#                           html=f"<strong>Dear {name},</strong><br>"
-#                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
-#                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
-#         with open(pdf_path, 'rb') as pdf_file:
-#             message.attach("property_data.pdf", "application/pdf", pdf_file.read())
-
-#         mail.send(message)
-#         print("Email sent successfully.")
-#         return True
-#     except Exception as e:
-#         print(f"Failed to send email: {e}")
-#         return False
-
-
-#send_email function sending correct mail with correct width but not styling
-# def send_email(to_email, name, properties):
-#     if not check_email_limit(to_email):
-#         print(f"Email limit reached for {to_email}")
-#         return False
-
-#     try:
-#         # Load the predesigned PDF and extract static pages
-#         static_pdf_path = os.path.join('static', 'pdffin.pdf')
-#         static_pdf = PdfReader(static_pdf_path)
-
-#         custom_page_size = (925 * 72 / 96, 527 * 72 / 96)
-        
-#         # Create a new PDF for the dynamic content
-#         dynamic_pdf_buffer = BytesIO()
-#         doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=custom_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-#         styles = getSampleStyleSheet()
-#         styles.add(ParagraphStyle(name='Bold', fontName='Helvetica-Bold'))
-#         elements = []
-
-#         for p in properties:
-#             for img_url in [p['img1'], p['img2']]:
-#                 if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
-#                     try:
-#                         response = requests.get(img_url)
-#                         img = Image(BytesIO(response.content), width=4*inch, height=3*inch)
-#                         elements.append(img)
-#                     except Exception as e:
-#                         print(f"Error processing image {img_url}: {e}")
-#                 else:
-#                     print(f"Invalid URL: {img_url}")
-
-#             elements.append(Paragraph(f"Name: {p['name']}", styles['Bold']))
-#             elements.append(Paragraph(f"Address: {p['micromarket']}, {p['city']}", styles['Bold']))
-#             elements.append(Paragraph("Details:", styles['Bold']))
-#             elements.append(Paragraph(str(p['details']), styles['Normal']))
-#             elements.append(Spacer(1, 12))
-#             elements.append(Paragraph("About:", styles['Bold']))
-#             elements.append(Paragraph(str(p['about']), styles['Normal']))
-#             elements.append(Spacer(1, 12))
-#             elements.append(PageBreak())
-
-#         doc.build(elements)
-#         dynamic_pdf_buffer.seek(0)
-#         dynamic_pdf = PdfReader(dynamic_pdf_buffer)
-
-#         # Merge static and dynamic PDFs
-#         output_pdf = PdfWriter()
-
-#         # Add static pages (pages 1, 2, and 5 from the original PDF)
-#         output_pdf.add_page(static_pdf.pages[0])
-#         output_pdf.add_page(static_pdf.pages[1])
-
-#         # Add dynamic content as page 4
-#         for page in dynamic_pdf.pages:
-#             output_pdf.add_page(page)
-
-#         # Add static page 5 from the original PDF
-#         output_pdf.add_page(static_pdf.pages[4])
-
-#         # Save the combined PDF to a buffer
-#         combined_pdf_buffer = BytesIO()
-#         output_pdf.write(combined_pdf_buffer)
-#         combined_pdf_buffer.seek(0)
-
-#         # Create email message and attach the combined PDF
-#         message = Message(subject='Your Property Data',
-#                           recipients=[to_email],
-#                           cc=['buzz@propques.com', 'enterprise.propques@gmail.com'],
-#                           html=f"<strong>Dear {name},</strong><br>"
-#                                "<strong>Please find attached the details of the properties you requested:</strong><br><br>"
-#                                "If you're interested in maximizing the benefits of the above properties at no cost, please reply to this email with 'Deal.' We will assign an account manager to coordinate with you.")
-#         message.attach("property_data.pdf", "application/pdf", combined_pdf_buffer.read())
-
-#         mail.send(message)
-#         print("Email sent successfully.")
-#         return True
-#     except Exception as e:
-#         print(f"Failed to send email: {e}")
-#         return False
-    
-
-from PIL import Image as PILImage, ImageDraw, ImageFont
-
-def generate_property_image(option_number, name, address, details, images, img_width, img_height):
-    # Create a blank white image
-    background_color = (255, 255, 255)
-    img = PILImage.new('RGB', (img_width, img_height), background_color)
-    draw = ImageDraw.Draw(img)
-
-    # Load a font
-    font_path = 'arial.ttf'  # Update this path to the location of your .ttf file
-    title_font = ImageFont.truetype(font_path, 64)
-    heading_font = ImageFont.truetype(font_path, 40)
-    content_font = ImageFont.truetype(font_path, 36)
-
-    # Draw text on the image
-    draw.text((20, 30), f"Option {option_number}", font=title_font, fill="#151D31")
-    draw.text((20, 180), "Name:", font=heading_font, fill="#333738")
-    draw.text((190, 180), name, font=content_font, fill="#0E0F11")
-    draw.text((20, 260), "Address:", font=heading_font, fill="#333738")
-    draw.text((190, 260), address, font=content_font, fill="#0E0F11")
-    draw.text((20, 340), "Details:", font=heading_font, fill="#333738")
-    draw.text((190, 340), details, font=content_font, fill="#0E0F11")
-
-    # Add property images
-    img_y = 100
-    for i, img_url in enumerate(images):
-        if isinstance(img_url, str) and (img_url.startswith('http://') or img_url.startswith('https://')):
-            try:
-                response = requests.get(img_url)
-                img_content = PILImage.open(BytesIO(response.content))
-                img_content.thumbnail((400, 400))  # Resize image
-                img.paste(img_content, (img_width - 450, img_y))
-                img_y += 420
-            except Exception as e:
-                print(f"Error processing image {img_url}: {e}")
-        else:
-            print(f"Invalid URL: {img_url}")
-
-    return img
 
 def send_email(to_email, name, properties):
     if not check_email_limit(to_email):
@@ -268,27 +100,16 @@ def send_email(to_email, name, properties):
         static_pdf_path = os.path.join('static', 'pdffin.pdf')
         static_pdf = PdfReader(static_pdf_path)
 
+        # Keep the page size consistent with the static pages
         static_page = static_pdf.pages[0]
         static_page_size = (static_page.mediabox.width, static_page.mediabox.height)
-
-        # Define image dimensions to match the PDF page size more closely
-        img_width, img_height = int(static_page_size[0]), int(static_page_size[1])
 
         # Create a new PDF for the dynamic content
         dynamic_pdf_buffer = BytesIO()
         doc = SimpleDocTemplate(dynamic_pdf_buffer, pagesize=static_page_size, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-        elements = []
+        styles = getSampleStyleSheet()
 
-        for i, p in enumerate(properties, start=1):
-            property_images = [p['img1'], p['img2']]
-            img = generate_property_image(i, p['name'], p['address'], p['details'], property_images, img_width, img_height)
-            img_buffer = BytesIO()
-            img.save(img_buffer, format="PNG")
-            img_buffer.seek(0)
-            elements.append(Image(img_buffer, width=img_width * 0.75, height=img_height * 0.75))
-            elements.append(PageBreak())
-
-        doc.build(elements)
+        generate_property_pdf(properties, doc, styles)
         dynamic_pdf_buffer.seek(0)
         dynamic_pdf = PdfReader(dynamic_pdf_buffer)
 
@@ -299,11 +120,11 @@ def send_email(to_email, name, properties):
         output_pdf.add_page(static_pdf.pages[0])
         output_pdf.add_page(static_pdf.pages[1])
 
-        # Add dynamic content as pages 3 and 4
+        # Add dynamic content
         for page in dynamic_pdf.pages:
             output_pdf.add_page(page)
 
-        # Add static page 5 from the original PDF
+        # Add the final static page from the original PDF
         output_pdf.add_page(static_pdf.pages[4])
 
         # Save the combined PDF to a buffer
@@ -326,7 +147,6 @@ def send_email(to_email, name, properties):
     except Exception as e:
         print(f"Failed to send email: {e}")
         return False
-
 
 
 def send_whatsapp_verification(mobile):
@@ -382,7 +202,7 @@ def index():
                 if result.get('success'):
                     flash("A WhatsApp verification message has been sent to your mobile number. Please verify to proceed.")
                 else:
-                    flash("Failed to send WhatsApp verification.Please try again.")
+                    flash("Failed to send WhatsApp verification. Please try again.")
 
             return redirect(url_for('index'))
 

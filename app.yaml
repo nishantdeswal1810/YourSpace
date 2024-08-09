@@ -6,8 +6,11 @@ handlers:
 - url: /.*
   script: auto
 
-manual_scaling:
-  instances: 1
+# automatic_scaling:
+#   min_instances: 1
+#   max_instances: 5  # Adjust as needed but ensure it's within your quota
+#   target_cpu_utilization: 0.6  # Adjust as needed
+#   target_throughput_utilization: 0.75  # Adjust as needed
 
 env_variables:
   FLASK_ENV: 'production'
